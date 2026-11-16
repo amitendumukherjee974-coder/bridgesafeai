@@ -1,0 +1,87 @@
+# ==============================================================================
+# Git Ignore - MineSafe-AI Bridge Health Monitoring Platform
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# IDEs & Editor configurations
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Runtime logs & temporary scratch files
+*.log
+*.tmp
+*.bak
+scratch/
+
+# Local empirical baseline calibration (local to each physical test bench)
+baseline.json
+
+# Real telemetry recording dumps (prevent pushing heavy session packet dumps)
+recordings/*.jsonl
+recordings/*.csv
+!recordings/.gitkeep
+
+# Arduino / PlatformIO compile artifacts
+*.hex
+*.bin
+*.elf
+.pio/
