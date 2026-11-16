@@ -1,0 +1,106 @@
+# ==============================================================================
+# MineSafe-AI Bridge Health Monitoring Dashboard Configuration
+# ==============================================================================
+# All configuration values for hardware interfaces, calibration parameters,
+# filter windows, risk thresholds, and diagnostic engines.
+
+serial:
+  port: "AUTO"                 # "AUTO" or specific COM port e.g. "COM3", "/dev/ttyUSB0"
+  baudrate: 115200             # Standard 115200 or high-speed 921600
+  timeout_sec: 1.0             # Read timeout
+  reconnect_interval_sec: 2.0  # Retry interval when cable disconnected
+
+network:
+  udp_enabled: true
+  udp_host: "0.0.0.0"
+  udp_port: 5005               # Incoming UDP port for Wi-Fi packets
+
+hardware:
+  node_id: "N1"
+  sampling_rate_hz: 500        # Accel sampling frequency
+  disconnect_timeout_sec: 2.0  # Max silence before declaring "NO DATA - device disconnected"
+
+calibration:
+  # HX711 Load Cell calibration: scale factor = raw_counts / kg
+  # Tuned with known 1.0 kg calibration weight placed over pier
+  hx711_scale: 420.0
+  hx711_zero_offset: 0.0
+
+  # Flex sensor ADC (GPIO35): 12-bit ADC range (0 - 4095)
+  # Measured min (unbent flat) and max (severely bent / open joint)
+  flex_adc_min: 1450
+  flex_adc_max: 3200
+
+  # VL53L0X Time-of-Flight Laser Distance to deck underside (mm)
+  # Mounting baseline distance (mm) when bridge deck is unstressed
+  tof_baseline_distance_mm: 85.0
+
+  # Battery voltage divider (GPIO39 ADC): ratio = (R1 + R2) / R2
+  # Typically R1=100k, R2=100k -> ratio = 2.0, ADC Vref = 3.3V
+  vbat_divider_ratio: 2.0
+
+  # Solar panel voltage divider (GPIO36 ADC)
+  # Typically R1=100k, R2=47k -> ratio = 3.128, for 6V solar panel
+  vsol_divider_ratio: 3.128
+
+filters:
+  highpass_cutoff_hz: 0.5      # Cutoff to eliminate gravity component from vibration
+  rms_window_sec: 1.0          # Sliding window for vibration RMS
+  fft_window_sec: 2.0          # Time window for natural frequency FFT
+  fft_min_freq_hz: 2.0         # Search range min for f0
+  fft_max_freq_hz: 100.0       # Search range max for f0
+  status_hold_sec: 3.0         # Debounce hold time for highest active risk level
+
+thresholds:
+  # Vibration RMS above calibrated baseline (standard deviations: sigma)
+  vibration_rms_sigma:
+    yellow: 3.0
+    orange: 6.0
+    red: 10.0
+
+  # Structure Tilt delta relative to baseline (degrees)
+  tilt_delta_deg:
+    yellow: 0.3
+    orange: 0.6
+    red: 1.0
+
+  # Residual permanent displacement left after unloading (mm)
+  residual_disp_mm:
+    yellow: 0.5
+    orange: 1.0
+    red: 2.0
+
+  # Flex sensor change as percentage share of calibrated range (%)
+  flex_delta_percent:
+    yellow: 20.0
+    orange: 40.0
+    red: 60.0
+
+  # Natural frequency f0 drop relative to baseline (%)
+  f0_drop_percent:
+    yellow: 5.0
+    orange: 10.0
+    red: 15.0
+
+  # Node Battery Voltage (V) - 18650 single cell
+  battery_volts:
+    yellow: 3.6
+    orange: 3.4
+    red: 3.3
+
+  # Communication link packet loss (%)
+  packet_loss_percent:
+    yellow: 5.0
+    orange: 15.0
+    red: 30.0
+
+  # LoRa RSSI signal strength (dBm)
+  lora_rssi_dbm:
+    yellow: -105.0
+    orange: -115.0
+    red: -125.0
+
+anomaly_detection:
+  isolation_forest_enabled: false   # Only enabled after recording real baseline!
+  contamination: 0.05
+  min_samples_to_train: 300

@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MineSafe-AI Bridge Health Monitoring Dashboard</title>
+  <link rel="stylesheet" href="/static/uPlot.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation / Brand Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-badge">MINESAFE-AI</div>
+      <div>
+        <div class="brand-title">Bridge Structural Health Monitoring</div>
+        <div class="brand-sub">Real-Time Sensor Telemetry &bull; Automated Decision Support Prototype</div>
+      </div>
+    </div>
+    <div class="header-controls">
+      <button id="btn-fullscreen" title="Toggle 3m Projector Presentation Mode">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        Presentation Mode
+      </button>
+      <button id="btn-settings-open" title="Configure Thresholds & Hardware Calibration">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button id="btn-export-report" class="primary" title="Export session report for judges">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Save Report
+      </button>
+    </div>
+  </header>
+
+  <!-- 1. Top Status Banner (5-Second Judge Glance) -->
+  <section id="status-banner" class="status-banner NO_DATA">
+    <div class="banner-left">
+      <div id="status-pill" class="status-pill-big">NO DATA</div>
+      <div class="banner-text-group">
+        <div id="banner-reason" class="banner-reason">NO DATA – device disconnected</div>
+        <div id="banner-action" class="banner-action">Connect ESP32 sensor node via USB serial or Wi-Fi UDP.</div>
+      </div>
+    </div>
+    <div class="banner-right">
+      <div id="replay-badge" class="replay-indicator">REPLAY OF RECORDED REAL DATA</div>
+      <div id="banner-timestamp">--:--:--</div>
+      <div id="banner-diagnosis-short" style="font-size:12px; color:#cbd5e1;">Awaiting packet telemetry</div>
+    </div>
+  </section>
+
+  <!-- 2. Hardware Connection & Telemetry Strip -->
+  <section class="connection-strip">
+    <div class="conn-telemetry">
+      <div class="conn-item">
+        <span>PORT:</span>
+        <strong id="conn-port-val">Scanning...</strong>
+      </div>
+      <div class="conn-item">
+        <span>RATE:</span>
+        <strong id="conn-pps-val">0.0</strong> <small>pps</small>
+      </div>
+      <div class="conn-item">
+        <span>LOSS:</span>
+        <strong id="conn-loss-val">0.0%</strong> (<span id="conn-lost-count">0</span> lost)
+      </div>
+      <div class="conn-item">
+        <span>PACKET AGE:</span>
+        <strong id="conn-age-val">--</strong>
+      </div>
+      <div class="conn-item">
+        <span>DATA SOURCE:</span>
+        <strong id="conn-source-val" style="color:#00e676;">REAL HARDWARE ONLY</strong>
+      </div>
+    </div>
+
+    <!-- 12 Sensor Online Chips -->
+    <div class="sensor-chips" title="Real hardware sensor node presence status">
+      <div id="chip-s1" class="chip offline" title="S1: MPU6050 Deck Mid-Span IMU">S1: MID</div>
+      <div id="chip-s2" class="chip offline" title="S2: MPU6050 Base Ground Reference">S2: GND</div>
+      <div id="chip-s3" class="chip offline" title="S3: ADXL345 Deck Quarter-Span Accel">S3: QTR</div>
+      <div id="chip-d1" class="chip offline" title="D1: VL53L0X Laser Distance ToF">D1: LASER</div>
+      <div id="chip-f1" class="chip offline" title="F1: Flex Resistance Sensor Across Joint">F1: FLEX</div>
+      <div id="chip-f2" class="chip offline" title="F2: Crack Detection Foil Wire">F2: FOIL</div>
+      <div id="chip-l1" class="chip offline" title="L1: HX711 Load Cell Under Pier">L1: LOAD</div>
+      <div id="chip-v1" class="chip offline" title="V1: SW-420 Shock Trigger">V1: SHOCK</div>
+      <div id="chip-p1" class="chip offline" title="P1: 18650 Battery Voltage Divider">P1: BAT</div>
+      <div id="chip-p2" class="chip offline" title="P2: Solar Panel Voltage Divider">P2: SOL</div>
+      <div id="chip-r1" class="chip offline" title="R1: LoRa SX1278 Wireless Link">R1: LORA</div>
+      <div id="chip-g1" class="chip offline" title="G1: NEO-6M GPS Receiver">G1: GPS</div>
+    </div>
+  </section>
+
+  <!-- Main Body Content -->
+  <main>
+
+    <!-- 3. Bridge Schematic Map -->
+    <section class="bridge-schematic-card">
+      <div class="schematic-header">
+        <div class="schematic-title">Interactive Scale Bridge Sensor Topology (60 &times; 12 cm MDF Tabletop Model)</div>
+        <div style="font-size: 11px; color: var(--text-dim);">
+          Interactive Map &bull; Click any sensor dot to inspect readings
+        </div>
+      </div>
+      <div class="schematic-container">
+        <svg class="bridge-svg" viewBox="0 0 900 170" preserveAspectRatio="xMidYMid meet">
+          <!-- Ground Base -->
+          <rect x="30" y="145" width="840" height="15" fill="#1e293b" stroke="#334155" stroke-width="2" rx="3"/>
+          <text x="40" y="156" fill="#64748b" font-size="10" font-family="monospace">GROUND BASE REFERENCE BOARD (STATIONARY / TILTING BASE)</text>
+
+          <!-- Pier 1 (Settlement Jack Pier) -->
+          <rect x="160" y="55" width="45" height="90" fill="#334155" stroke="#475569" stroke-width="2" rx="2"/>
+          <text x="164" y="105" fill="#94a3b8" font-size="10" font-weight="bold">PIER 1</text>
+          <!-- Settlement Jack Symbol -->
+          <g id="map-settlement-jack" transform="translate(145, 120)">
+            <rect x="0" y="0" width="14" height="20" fill="#b45309" stroke="#f59e0b" rx="2"/>
+            <text x="18" y="14" fill="#f59e0b" font-size="9" font-family="monospace">JACK (TURNS)</text>
+          </g>
+
+          <!-- Pier 2 (Fixed Pier) -->
+          <rect x="695" y="55" width="45" height="90" fill="#334155" stroke="#475569" stroke-width="2" rx="2"/>
+          <text x="700" y="105" fill="#94a3b8" font-size="10" font-weight="bold">PIER 2</text>
+
+          <!-- Bridge Deck (MDF Span) -->
+          <!-- Left segment -->
+          <rect x="130" y="42" width="220" height="14" fill="#475569" stroke="#64748b" stroke-width="1.5" rx="1"/>
+          <!-- Split Joint gap marker -->
+          <line x1="350" y1="36" x2="350" y2="62" stroke="#ef4444" stroke-width="2" stroke-dasharray="3,3"/>
+          <text x="315" y="30" fill="#ef4444" font-size="9" font-weight="bold">SPLIT JOINT</text>
+          <!-- Right segment -->
+          <rect x="352" y="42" width="418" height="14" fill="#475569" stroke="#64748b" stroke-width="1.5" rx="1"/>
+
+          <!-- Laser ToF Mounting Bracket Under Mid-Span -->
+          <line x1="450" y1="56" x2="450" y2="135" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="2,2"/>
+          <text x="455" y="95" fill="#0ea5e9" font-size="9" font-family="monospace">LASER BEAM</text>
+
+          <!-- SENSOR NODES ON BRIDGE -->
+          <!-- S1: Deck Mid-Span IMU -->
+          <g id="map-node-s1" class="sensor-node" transform="translate(450, 42)" onclick="highlightTile('tile-s1')">
+            <circle cx="0" cy="0" r="7" fill="#64748b" stroke="#fff" stroke-width="2"/>
+            <text x="-12" y="-12" fill="#fff" font-size="11" font-weight="bold">S1: MID</text>
+          </g>
+
+          <!-- S2: Ground Base IMU -->
+          <g id="map-node-s2" class="sensor-node" transform="translate(450, 152)" onclick="highlightTile('tile-s2')">
+            <circle cx="0" cy="0" r="7" fill="#64748b" stroke="#fff" stroke-width="2"/>
+            <text x="14" y="4" fill="#fff" font-size="11" font-weight="bold">S2: GROUND</text>
+          </g>
+
+          <!-- S3: Deck Quarter-Span Accel -->
+          <g id="map-node-s3" class="sensor-node" transform="translate(250, 42)" onclick="highlightTile('tile-s3')">
+            <circle cx="0" cy="0" r="7" fill="#64748b" stroke="#fff" stroke-width="2"/>
+            <text x="-14" y="-12" fill="#fff" font-size="11" font-weight="bold">S3: QTR</text>
+          </g>
+
+          <!-- D1: Laser ToF Underneath -->
+          <g id="map-node-d1" class="sensor-node" transform="translate(450, 140)" onclick="highlightTile('tile-d1')">
+            <polygon points="-7,5 7,5 0,-7" fill="#00e676" stroke="#fff" stroke-width="1.5"/>
+            <text x="12" y="-2" fill="#00e676" font-size="10" font-weight="bold">D1: ToF</text>
+          </g>
+
+          <!-- F1 / F2: Flex & Crack Wire Across Split Joint -->
+          <g id="map-node-f1" class="sensor-node" transform="translate(351, 49)" onclick="highlightTile('tile-f1')">
+            <rect x="-9" y="-4" width="18" height="8" fill="#ffd600" stroke="#fff" stroke-width="1.5" rx="2"/>
+            <text x="-24" y="20" fill="#ffd600" font-size="10" font-weight="bold">F1/F2: JOINT</text>
+          </g>
+
+          <!-- L1: Load Cell Under Pier 1 -->
+          <g id="map-node-l1" class="sensor-node" transform="translate(182, 145)" onclick="highlightTile('tile-l1')">
+            <circle cx="0" cy="0" r="6" fill="#38bdf8" stroke="#fff" stroke-width="1.5"/>
+            <text x="-38" y="18" fill="#38bdf8" font-size="10" font-weight="bold">L1: LOAD CELL</text>
+          </g>
+
+          <!-- V1: Shock Sensor -->
+          <g id="map-node-v1" class="sensor-node" transform="translate(580, 42)" onclick="highlightTile('tile-s1')">
+            <circle cx="0" cy="0" r="6" fill="#a855f7" stroke="#fff" stroke-width="1.5"/>
+            <text x="-12" y="-12" fill="#a855f7" font-size="10" font-weight="bold">V1: SHOCK</text>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- 4. Sensor Value Tiles (12 Metrics) -->
+    <section class="sensor-tiles-grid">
+      <!-- Tile 1: Deck Mid-Span Vibration (S1) -->
+      <div id="tile-s1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">S1 Deck Vibration</span>
+          <span id="badge-s1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-s1-rms" class="tile-val">--</span>
+          <span class="tile-unit">g RMS</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="delta-s1-rms" class="tile-delta">&Delta; -- &sigma; baseline</span>
+          <span class="tile-source">MPU6050 (0x68)</span>
+        </div>
+      </div>
+
+      <!-- Tile 2: Modal Natural Frequency (f0) -->
+      <div id="tile-f0" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Natural Frequency (f0)</span>
+          <span id="badge-f0" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-f0" class="tile-val">--</span>
+          <span class="tile-unit">Hz</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="delta-f0" class="tile-delta">&Delta; drop: --%</span>
+          <span class="tile-source">FFT (2-100 Hz)</span>
+        </div>
+      </div>
+
+      <!-- Tile 3: Structure Deck Pitch Tilt (S1) -->
+      <div id="tile-tilt" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Deck Pitch Tilt</span>
+          <span id="badge-tilt" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-tilt-s1" class="tile-val">--</span>
+          <span class="tile-unit">deg (&deg;)</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="delta-tilt-s1" class="tile-delta">&Delta; --&deg; baseline</span>
+          <span class="tile-source">atan2 filter</span>
+        </div>
+      </div>
+
+      <!-- Tile 4: Ground Tilt & Settlement (S1 - S2) -->
+      <div id="tile-s2" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Pier Settle Differential</span>
+          <span id="badge-settle" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-tilt-diff" class="tile-val">--</span>
+          <span class="tile-unit">&deg; (S1-S2)</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="val-tilt-s2" class="tile-delta">Ground S2: --&deg;</span>
+          <span class="tile-source">S2 Base (0x69)</span>
+        </div>
+      </div>
+
+      <!-- Tile 5: Mid-Span Displacement (D1) -->
+      <div id="tile-d1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Mid-Span Deflection</span>
+          <span id="badge-d1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-disp-deflection" class="tile-val">--</span>
+          <span class="tile-unit">mm</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="val-disp-residual" class="tile-delta">Residual: -- mm</span>
+          <span class="tile-source">VL53L0X ToF</span>
+        </div>
+      </div>
+
+      <!-- Tile 6: Split Joint Flex & Crack Foil (F1/F2) -->
+      <div id="tile-f1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Joint Crack / Flex</span>
+          <span id="badge-f1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-flex-pct" class="tile-val">--</span>
+          <span class="tile-unit">% span</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="val-crack-wire" class="tile-delta" style="font-weight:bold;">Wire: INTACT</span>
+          <span class="tile-source">Flex + Foil Wire</span>
+        </div>
+      </div>
+
+      <!-- Tile 7: Pier Load Cell (L1) -->
+      <div id="tile-l1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Pier Applied Load</span>
+          <span id="badge-l1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-load-kg" class="tile-val">--</span>
+          <span class="tile-unit">kg <small>(est)</small></span>
+        </div>
+        <div class="tile-bottom">
+          <span id="status-load-elastic" class="tile-delta">Elastic load</span>
+          <span class="tile-source">HX711 (calibrated)</span>
+        </div>
+      </div>
+
+      <!-- Tile 8: S3 Quarter-Span Spatial Ratio -->
+      <div id="tile-s3" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Spatial Correlation</span>
+          <span id="badge-s3" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-s3-ratio" class="tile-val">--</span>
+          <span class="tile-unit">S3/S1 ratio</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="val-s3-rms" class="tile-delta">S3: -- g RMS</span>
+          <span class="tile-source">ADXL345 (0x53)</span>
+        </div>
+      </div>
+
+      <!-- Tile 9: Node Battery Voltage (P1) -->
+      <div id="tile-p1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Battery Power</span>
+          <span id="badge-p1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-vbat" class="tile-val">--</span>
+          <span class="tile-unit">V</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="status-vbat" class="tile-delta">18650 Cell</span>
+          <span class="tile-source">GPIO39 Divider</span>
+        </div>
+      </div>
+
+      <!-- Tile 10: Solar Panel Voltage (P2) -->
+      <div id="tile-p2" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">Solar Panel</span>
+          <span id="badge-p2" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-vsol" class="tile-val">--</span>
+          <span class="tile-unit">V</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="status-vsol" class="tile-delta">6V Panel Harvester</span>
+          <span class="tile-source">GPIO36 Divider</span>
+        </div>
+      </div>
+
+      <!-- Tile 11: LoRa RF Link & Loss (R1) -->
+      <div id="tile-r1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">LoRa Telemetry Link</span>
+          <span id="badge-r1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-rssi" class="tile-val">--</span>
+          <span class="tile-unit">dBm</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="val-snr" class="tile-delta">SNR: -- dB</span>
+          <span class="tile-source">SX1278 (433MHz)</span>
+        </div>
+      </div>
+
+      <!-- Tile 12: GPS Location (G1) -->
+      <div id="tile-g1" class="tile">
+        <div class="tile-top">
+          <span class="tile-label">GPS Spatial Fix</span>
+          <span id="badge-g1" class="tile-badge">--</span>
+        </div>
+        <div class="tile-value-wrap">
+          <span id="val-gps-fix" class="tile-val" style="font-size:18px;">No Fix (Indoors)</span>
+        </div>
+        <div class="tile-bottom">
+          <span id="val-gps-coords" class="tile-delta">Sats: 0</span>
+          <span class="tile-source">NEO-6M</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Real-Time High-Speed Charts Grid -->
+    <section class="charts-grid">
+      <!-- Chart 1: Vibration Waveform & RMS -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Vibration Waveforms &amp; Dynamic RMS (500 Hz)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00e676;"></div> S1 Mid</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0ea5e9;"></div> S2 Ground</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#c084fc;"></div> S3 Qtr</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ffd600;"></div> 3&sigma; Watch</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff1744;"></div> 10&sigma; Unsafe</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-vib">
+          <canvas id="canvas-vib"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: FFT Frequency Spectrum & f0 Peak -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">FFT Power Spectrum &amp; Modal Frequency f0 (2 - 100 Hz)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00d2ff;"></div> Spectrum Amp</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ffd600;"></div> Baseline f0</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#00e676;"></div> Current f0</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-fft">
+          <canvas id="canvas-fft"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Bridge Deck Tilt vs Ground Tilt -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Deck Pitch Tilt vs Ground Tilt Differential (&deg;)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> S1 Deck Tilt</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#94a3b8;"></div> S2 Ground Tilt</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> S1-S2 Settle</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-tilt">
+          <canvas id="canvas-tilt"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Laser Displacement & Unloaded Residual -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Mid-Span Deflection &amp; Unloaded Residual (mm)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00e676;"></div> Deflection (mm)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff9100;"></div> 1.0mm Inspect</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff1744;"></div> 2.0mm Unsafe</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-disp">
+          <canvas id="canvas-disp"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 5: Joint Sensors: Flex Sensor % & Crack Wire -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Split Joint Flex Sensor Range Share (%)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ffd600;"></div> Flex Share %</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff9100;"></div> 40% Inspect</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff1744;"></div> 60% Unsafe</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-flex">
+          <canvas id="canvas-flex"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 6: Pier Load Cell (kg) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Pier Load Cell Measurement (kg)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> Load (kg)</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-load">
+          <canvas id="canvas-load"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 7: Node Power (Battery & Solar Voltage) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Node Power: 18650 Battery &amp; Solar Panel (V)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> Battery (V)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Solar (V)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff1744;"></div> 3.3V Cutoff</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-power">
+          <canvas id="canvas-power"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 8: Communication Link & Packet Loss -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">Communication Link Quality &amp; Packet Loss (%)</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00e676;"></div> Loss (%)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ff9100;"></div> 15% Warning</div>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="wrap-chart-link">
+          <canvas id="canvas-link"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Bottom Split: Chronological Event Log & Operator Controls -->
+    <section class="bottom-split">
+
+      <!-- Event Log -->
+      <div class="log-card">
+        <div class="schematic-header">
+          <span class="schematic-title">Real-Time Event &amp; Threshold Log</span>
+          <span style="font-size: 11px; color: var(--text-muted);">Timestamped State Transitions &bull; Raw Diagnostics</span>
+        </div>
+        <div class="log-table-wrap">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Time</th>
+                <th style="width: 80px;">Level</th>
+                <th style="width: 100px;">Source</th>
+                <th>Diagnostic Description</th>
+                <th>Raw Value</th>
+              </tr>
+            </thead>
+            <tbody id="log-table-body">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 14px;">
+                  System initializing. Awaiting threshold events...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Operator Controls & Replay -->
+      <div class="controls-card">
+        <div class="schematic-title">Bench Calibration &amp; Demo Controls</div>
+
+        <div class="control-btn-grid">
+          <!-- Calibrate Baseline -->
+          <button id="btn-calibrate" class="primary" title="Keep bridge still for 30s to compute mean and standard deviation">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+            <span id="btn-cal-text">Calibrate (30s)</span>
+          </button>
+
+          <!-- Record Session -->
+          <button id="btn-record" title="Record incoming real packets to timestamped JSONL file">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+            <span id="btn-rec-text">Start Recording</span>
+          </button>
+        </div>
+
+        <!-- Annotate / Mark Event -->
+        <div>
+          <label style="font-size: 11px; text-transform: uppercase; color: var(--text-dim); font-weight: bold;">
+            Mark Operator Event (Judge Demo Step)
+          </label>
+          <div class="annotation-box">
+            <input type="text" id="input-event-note" placeholder="e.g. 1 kg placed / Jack turned 4 revs">
+            <button id="btn-mark-event">Mark</button>
+          </div>
+        </div>
+
+        <!-- Replay Real Session -->
+        <div>
+          <label style="font-size: 11px; text-transform: uppercase; color: var(--text-dim); font-weight: bold;">
+            Replay Recorded Real Session
+          </label>
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <select id="select-replay-file" style="flex:1; background:#090e17; border:1px solid var(--border-strong); color:#fff; padding:6px; border-radius:6px; font-size:12px;">
+              <option value="">No recorded sessions available</option>
+            </select>
+            <button id="btn-replay-toggle">Replay</button>
+          </div>
+        </div>
+
+        <!-- Serial Port Quick Switch -->
+        <div>
+          <label style="font-size: 11px; text-transform: uppercase; color: var(--text-dim); font-weight: bold;">
+            Hardware Serial Port
+          </label>
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <select id="select-serial-port" style="flex:1; background:#090e17; border:1px solid var(--border-strong); color:#fff; padding:6px; border-radius:6px; font-size:12px;">
+              <option value="AUTO">AUTO (Auto-detect ESP32)</option>
+            </select>
+            <button id="btn-port-connect">Connect</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Honest-Labelling Footer -->
+  <footer>
+    <div class="footer-disclaimer">
+      <strong>Decision-support prototype on a scale model.</strong> Thresholds were tuned on the bench model. Not a safety certification.
+      &bull; Early detection, anomaly detection, and risk estimation &bull; Real Hardware Data Only
+    </div>
+    <div>
+      UEM Kolkata &bull; MineSafe-AI Bridge Health Platform &bull; v2.0
+    </div>
+  </footer>
+
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Threshold &amp; Calibration Settings</h3>
+        <button id="btn-settings-close" class="modal-close">&times;</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px; font-size:13px;">
+        <p style="color:var(--text-dim);">Edit transparent engineering thresholds stored in <code>config.yaml</code>. Changes apply immediately without restart.</p>
+
+        <h4 style="color:var(--accent-cyan);">Vibration RMS (&sigma; above calibrated baseline)</h4>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+          <div><label>Yellow:</label> <input id="cfg-vib-yellow" type="number" step="0.5" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+          <div><label>Orange:</label> <input id="cfg-vib-orange" type="number" step="0.5" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+          <div><label>Red:</label> <input id="cfg-vib-red" type="number" step="0.5" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+        </div>
+
+        <h4 style="color:var(--accent-cyan);">Structure Deck Tilt Change (&deg;)</h4>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+          <div><label>Yellow (&deg;):</label> <input id="cfg-tilt-yellow" type="number" step="0.1" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+          <div><label>Orange (&deg;):</label> <input id="cfg-tilt-orange" type="number" step="0.1" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+          <div><label>Red (&deg;):</label> <input id="cfg-tilt-red" type="number" step="0.1" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+        </div>
+
+        <h4 style="color:var(--accent-cyan);">Unloaded Residual Deflection (mm)</h4>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+          <div><label>Yellow (mm):</label> <input id="cfg-disp-yellow" type="number" step="0.1" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+          <div><label>Orange (mm):</label> <input id="cfg-disp-orange" type="number" step="0.1" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+          <div><label>Red (mm):</label> <input id="cfg-disp-red" type="number" step="0.1" style="width:100%; padding:4px; background:#090e17; color:#fff; border:1px solid #334;"></div>
+        </div>
+
+        <h4 style="color:var(--accent-cyan);">HX711 Load Cell Scale Factor (counts / kg)</h4>
+        <div>
+          <input id="cfg-hx711-scale" type="number" step="1.0" style="width:100%; padding:6px; background:#090e17; color:#fff; border:1px solid #334;">
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+          <button id="btn-settings-cancel">Cancel</button>
+          <button id="btn-settings-save" class="primary">Save Configuration</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts: Local bundled uPlot and Dashboard JS -->
+  <script src="/static/uPlot.iife.min.js"></script>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
